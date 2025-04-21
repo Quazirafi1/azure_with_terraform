@@ -21,7 +21,14 @@ resource "azurerm_subnet" "openwebui" {
   name                 = "internal"
   resource_group_name  = azurerm_resource_group.openwebui.name
   virtual_network_name = azurerm_virtual_network.openwebui.name
-  address_prefixes     = ["10.0.2.0/24"]
+  address_prefixes = [cidrsubnet(azurerm_virtual_network.openwebui.address_space[0], 8, 2)]
+}
+
+resource "azurerm_public_ip" "openwebui" {
+  name = "openwebui-ip"
+  location = azurerm_resource_group.openwebui.location
+  resource_group_name = azurerm_resource_group.openwebui.name
+  allocation_method = "Static"
 }
 
 resource "azurerm_network_interface" "openwebui" {
@@ -33,6 +40,7 @@ resource "azurerm_network_interface" "openwebui" {
     name                          = "internal"
     subnet_id                     = azurerm_subnet.openwebui.id
     private_ip_address_allocation = "Dynamic"
+    public_ip_address_id = azurerm_public_ip.openwebui.id
   }
 }
 
