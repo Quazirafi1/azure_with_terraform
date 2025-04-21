@@ -5,6 +5,23 @@ data "azurerm_platform_image" "openwebui" {
   sku = "11"
 }
 
+data "cloudinit_config" "config" {
+  gzip = true
+  base64_encode = true
+
+  part {
+    filename = "init.sh"
+    content_type = "text/x-shellscript"
+
+    content = file("${path.module}/scripts/provision_basic.sh")
+  }
+
+  part {
+    content_type = "text/cloud-config"
+    content = file("${path.module}/scripts/init.yaml")
+  }
+}
+
 resource "azurerm_resource_group" "openwebui" {
   name     = "example-resources"
   location = "West Europe"
@@ -70,4 +87,20 @@ resource "azurerm_linux_virtual_machine" "openwebui" {
     sku       = data.azurerm_platform_image.openwebui.sku
     version   = data.azurerm_platform_image.openwebui.version
   }
+
+  custom_data = data.cloudinit_config.config.rendered
+}
+
+resource "terracurl_request" "openwebui" {
+  lifecycle {
+    replace_triggered_by = [ azurerm_linux_virtual_machine.openwebui ]
+  }
+
+  name   = "open_web_ui"
+  url    = "http://${resource.azurerm_public_ip.openwebui.ip_address}"
+  method = "GET"
+
+  response_codes = [200]
+  max_retry      = 120
+  retry_interval = 10
 }
