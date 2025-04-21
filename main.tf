@@ -6,12 +6,16 @@ terraform {
       version = "=3.0.0"
     }
     cloudinit = {
-      source = "hashicorp/cloudinit"
+      source  = "hashicorp/cloudinit"
       version = "2.3.7-alpha.2"
     }
     terracurl = {
-      source = "devops-rob/terracurl"
+      source  = "devops-rob/terracurl"
       version = "1.2.2"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.6.2"
     }
   }
 }
@@ -29,7 +33,7 @@ variable "open_webui_user" {
 }
 
 variable "openai_base" {
-  description = "Optional base URL to use OpenAI API with Open Web UI" 
+  description = "Optional base URL to use OpenAI API with Open Web UI"
   default     = "https://api.openai.com/v1"
 }
 

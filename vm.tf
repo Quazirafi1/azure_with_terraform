@@ -1,24 +1,36 @@
 data "azurerm_platform_image" "openwebui" {
-  location = azurerm_resource_group.openwebui.location
+  location  = azurerm_resource_group.openwebui.location
   publisher = "Debian"
-  offer = "debian-11"
-  sku = "11"
+  offer     = "debian-11"
+  sku       = "11"
+}
+
+resource "random_password" "password" {
+  length  = 16
+  special = false
 }
 
 data "cloudinit_config" "config" {
-  gzip = true
+  gzip          = true
   base64_encode = true
 
   part {
-    filename = "init.sh"
+    filename     = "init.sh"
     content_type = "text/x-shellscript"
 
-    content = file("${path.module}/scripts/provision_basic.sh")
+    content = templatefile("${path.module}/scripts/provision_vars.sh",
+      {
+        open_webui_user     = var.open_webui_user,
+        open_webui_password = random_password.password.result,
+        openai_base         = var.openai_base,
+        openai_key          = var.openai_key,
+        gpu_enabled         = var.gpu_enabled,
+    })
   }
 
   part {
     content_type = "text/cloud-config"
-    content = file("${path.module}/scripts/init.yaml")
+    content      = file("${path.module}/scripts/init.yaml")
   }
 }
 
@@ -38,14 +50,14 @@ resource "azurerm_subnet" "openwebui" {
   name                 = "internal"
   resource_group_name  = azurerm_resource_group.openwebui.name
   virtual_network_name = azurerm_virtual_network.openwebui.name
-  address_prefixes = [cidrsubnet(azurerm_virtual_network.openwebui.address_space[0], 8, 2)]
+  address_prefixes     = [cidrsubnet(azurerm_virtual_network.openwebui.address_space[0], 8, 2)]
 }
 
 resource "azurerm_public_ip" "openwebui" {
-  name = "openwebui-ip"
-  location = azurerm_resource_group.openwebui.location
+  name                = "openwebui-ip"
+  location            = azurerm_resource_group.openwebui.location
   resource_group_name = azurerm_resource_group.openwebui.name
-  allocation_method = "Static"
+  allocation_method   = "Static"
 }
 
 resource "azurerm_network_interface" "openwebui" {
@@ -57,7 +69,7 @@ resource "azurerm_network_interface" "openwebui" {
     name                          = "internal"
     subnet_id                     = azurerm_subnet.openwebui.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id = azurerm_public_ip.openwebui.id
+    public_ip_address_id          = azurerm_public_ip.openwebui.id
   }
 }
 
@@ -65,14 +77,14 @@ resource "azurerm_linux_virtual_machine" "openwebui" {
   name                = "example-machine"
   resource_group_name = azurerm_resource_group.openwebui.name
   location            = azurerm_resource_group.openwebui.location
-  size                = "Standard_A2_V2"
-  admin_username      = "adminuser"
+  size                = var.gpu_enabled ? var.machine.gpu.type : var.machine.cpu.type
+  admin_username      = "openwebui"
   network_interface_ids = [
     azurerm_network_interface.openwebui.id,
   ]
 
   admin_ssh_key {
-    username   = "adminuser"
+    username   = "openwebui"
     public_key = file("C:/Users/USER/.ssh/id_rsa.pub")
   }
 
@@ -93,7 +105,7 @@ resource "azurerm_linux_virtual_machine" "openwebui" {
 
 resource "terracurl_request" "openwebui" {
   lifecycle {
-    replace_triggered_by = [ azurerm_linux_virtual_machine.openwebui ]
+    replace_triggered_by = [azurerm_linux_virtual_machine.openwebui]
   }
 
   name   = "open_web_ui"
